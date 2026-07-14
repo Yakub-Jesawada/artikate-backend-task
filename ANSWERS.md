@@ -68,6 +68,13 @@ With the defaults, nothing protects you: Celery acks a task the moment a worker 
 
 **Why `contextvars.ContextVar` instead:** it's exactly what Python's own `asyncio` and Django's async request handling are built to propagate correctly. Every new `asyncio.Task` gets a **copy** of the context it was created in, so concurrent requests never see each other's values (fixing failure mode 1), and — critically for Django specifically — `sync_to_async`/`async_to_sync` explicitly copy the current `contextvars.Context` across the thread hop, so a `ContextVar` set before the hop is still correctly visible after it (fixing failure mode 2). This is why `tenancy/context.py` is built on `contextvars.ContextVar` from the start rather than `threading.local` — the implementation here is already the "safe for async" version, not a sync-only version with a TODO to fix later.
 
+**Known limitation — tenant *resolution* is not the same as tenant *authentication*.** `TenantManager`/`contextvars` correctly enforce isolation once a tenant id is known; they say nothing about whether the tenant id `TenantMiddleware` resolved was legitimately established. As implemented here (`tenancy/middleware.py::_resolve_tenant_id`):
+
+- The subdomain path trusts the `Host` header directly, which is client-controlled and sent before any authentication. A request can set `Host: acme.example.com` (or, against a server reachable by IP, forge it outright) and be scoped to that tenant with no credential at all. This is fine as a demonstration of the scoping *mechanism*, but is not something to deploy as-is: a real system must derive the tenant from an already-authenticated session/user, not a raw header.
+- The JWT path verifies the signature (so the token itself can't be forged without `TENANT_JWT_SECRET`), but doesn't verify that the calling user is actually a *member* of the `tenant_id` the token claims — there's no `User`/membership model in this assessment's scope to check that against. Production would add a `sub`/user claim, look the user up, and confirm tenant membership server-side before calling `set_current_tenant_id`, rather than trusting `tenant_id` from the token at face value.
+
+Both are flagged directly in the middleware's docstring rather than left implicit.
+
 ---
 
 ## Section 4 — Written Architecture Review

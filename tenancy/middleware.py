@@ -17,6 +17,21 @@ class TenantMiddleware:
     leaks into the next request handled by the same worker thread -- and,
     per ANSWERS.md, the ContextVar (rather than threading.local) is what
     keeps this correct once the app moves to async views.
+
+    SECURITY NOTE (known limitation, see ANSWERS.md Section 3): both
+    resolution paths here demonstrate the ORM-scoping *mechanism* only and
+    are not a real authentication/authorization layer.
+      - The subdomain path trusts `Host`, which is client-controlled and
+        unauthenticated -- a request can set any Host header and be treated
+        as that tenant with no credential at all. A real deployment must
+        resolve tenant identity from an authenticated session/user, not a
+        raw header.
+      - The JWT path verifies the token's signature but does not check that
+        the authenticated principal is actually a member of `tenant_id` --
+        there is no User/membership model in this assessment's scope to
+        check that against. Production would look up the user from the
+        token's subject claim and confirm tenant membership server-side
+        before calling set_current_tenant_id.
     """
 
     def __init__(self, get_response):
@@ -45,6 +60,9 @@ class TenantMiddleware:
             if tenant_id is not None:
                 return tenant_id
 
+        # Demo-only fallback: Host is client-controlled and unauthenticated
+        # (see the SECURITY NOTE above). Do not treat this as an access
+        # control decision in a real deployment.
         host = request.META.get("HTTP_HOST", "").split(":")[0]
         subdomain = host.split(".")[0] if "." in host else None
         if subdomain:
