@@ -1,0 +1,8 @@
+Django==6.0.7
+djangorestframework==3.17.1
+celery==5.6.3
+redis==8.0.1
+psycopg2-binary==2.9.12
+django-silk==5.5.0
+python-dotenv==1.2.2
+PyJWT==2.13.0
