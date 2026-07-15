@@ -19,7 +19,7 @@ Section 5 (optional Loom recording) was **not recorded** for this submission —
 ## Setup (should take under 5 minutes)
 
 ```bash
-git clone <this-repo-url>
+git clone https://github.com/Yakub-Jesawada/artikate-backend-task.git
 cd artikate-backend-task
 
 python3 -m venv venv
